@@ -6,6 +6,42 @@ InferOps Copilot combines a React interface, Python APIs, retrieval-augmented ge
 
 > **Status:** Runnable local MVP. The authenticated streaming API, bounded read-only diagnostics, demo evidence, structured logs, React UI, and tests are implemented. GPU inference, vector retrieval, and production Kubernetes manifests remain optional extension paths; no performance claims are made.
 
+## Project Checklist
+
+### Completed
+
+- [x] Create a React interface for submitting diagnostic questions.
+- [x] Add namespace, resource kind, workload name, and runtime token inputs.
+- [x] Stream diagnostic events from FastAPI using Server-Sent Events.
+- [x] Validate API requests, bearer tokens, and allowed namespaces.
+- [x] Provide liveness and readiness endpoints.
+- [x] Add a zero-setup demo mode for local development.
+- [x] Support read-only inspection of Deployments, StatefulSets, DaemonSets, Pods, and Services.
+- [x] Resolve workload label selectors to matching pods.
+- [x] Collect bounded pod status, restart information, events, and container logs.
+- [x] Inspect Service port mappings and ready EndpointSlices.
+- [x] Diagnose common OOM, image-pull, readiness-probe, port, crash-loop, and scheduling failures.
+- [x] Link every diagnosis to returned evidence records.
+- [x] Add structured request and tool lifecycle logs.
+- [x] Add backend unit and API tests.
+- [x] Add local development scripts, Dockerfiles, and setup documentation.
+- [x] Verify the frontend production build and backend test suite.
+
+### Next
+
+- [ ] Validate the real-cluster path against each controlled failure scenario.
+- [ ] Add browser-level tests for the complete UI-to-API workflow.
+- [ ] Connect the workflow to a pinned instruction model served by vLLM.
+- [ ] Implement Triton embeddings with matching tokenizer, pooling, and normalization settings.
+- [ ] Implement document ingestion and Qdrant-backed retrieval.
+- [ ] Add documentation citations to diagnostic responses.
+- [ ] Complete and validate Kubernetes manifests, RBAC, probes, and Secrets.
+- [ ] Add production rate limits, request timeouts, cancellation, and concurrency limits.
+- [ ] Run diagnostic-quality evaluation and serving benchmarks.
+- [ ] Record reproducible results in the technical report and demo guide.
+
+The recommended next milestone is real-cluster scenario validation, followed by browser tests. Model serving and retrieval should be integrated only after the evidence workflow is stable.
+
 ## Overview
 
 Troubleshooting Kubernetes applications often requires switching between pod logs, events, service configurations, and documentation.

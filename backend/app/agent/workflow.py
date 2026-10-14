@@ -30,6 +30,12 @@ class DiagnosticWorkflow:
         elif "portmismatch" in joined or "targetport" in joined:
             summary = "The Service target port does not match the application port."
             actions = ["Align targetPort with the container port.", "Check EndpointSlice readiness."]
+        elif "crashloopbackoff" in joined or "back-off restarting" in joined:
+            summary = "The container repeatedly exits and Kubernetes is delaying its restarts."
+            actions = ["Inspect the previous container logs.", "Check the container command and required configuration."]
+        elif "failedscheduling" in joined or "insufficient" in joined:
+            summary = "Kubernetes cannot schedule the pod with the resources currently available."
+            actions = ["Review pod resource requests.", "Check node capacity, taints, and affinity rules."]
         else:
             summary = "The available evidence does not identify a single root cause."
             actions = ["Inspect the returned status and events.", "Collect recent and previous container logs."]

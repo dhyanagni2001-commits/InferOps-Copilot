@@ -1,6 +1,6 @@
 export default function EvidencePanel({ evidence = [] }) {
   if (!evidence.length) return null;
-  return <section><h2>Evidence</h2>{evidence.map(item => (
-    <details key={item.id}><summary>{item.title} <code>{item.id}</code></summary><pre>{item.detail}</pre></details>
+  return <section className="evidence"><div className="section-title"><h2>Evidence</h2><span>{evidence.length} records</span></div>{evidence.map(item => (
+    <details key={item.id}><summary><span>{item.title}</span><code>{item.id}</code></summary><pre>{item.detail}</pre></details>
   ))}</section>;
 }
