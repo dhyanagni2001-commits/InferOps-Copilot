@@ -4,7 +4,7 @@ An agentic AI assistant for diagnosing Kubernetes deployment and inference-servi
 
 InferOps Copilot combines a React interface, Python APIs, retrieval-augmented generation, Kubernetes diagnostic tools, vLLM, and NVIDIA Triton Inference Server.
 
-> **Status:** Initial scaffold. The architecture and features below describe the intended implementation. Empty starter files do not yet provide a runnable application. No evaluation results or performance improvements have been measured.
+> **Status:** Runnable local MVP. The authenticated streaming API, bounded read-only diagnostics, demo evidence, structured logs, React UI, and tests are implemented. GPU inference, vector retrieval, and production Kubernetes manifests remain optional extension paths; no performance claims are made.
 
 ## Overview
 
