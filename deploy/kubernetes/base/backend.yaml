@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inferops-backend
+  namespace: inferops-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: inferops-backend}
+  template:
+    metadata:
+      labels: {app: inferops-backend}
+    spec:
+      serviceAccountName: inferops-backend
+      containers:
+        - name: backend
+          image: inferops/backend:local
+          ports: [{containerPort: 8080}]
+          envFrom:
+            - configMapRef: {name: inferops-config}
+            - secretRef: {name: inferops-secrets}
+          readinessProbe: {httpGet: {path: /health/ready, port: 8080}, initialDelaySeconds: 3}
+          livenessProbe: {httpGet: {path: /health/live, port: 8080}, initialDelaySeconds: 10}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: "1", memory: 512Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inferops-backend
+  namespace: inferops-demo
+spec:
+  selector: {app: inferops-backend}
+  ports: [{port: 8080, targetPort: 8080}]

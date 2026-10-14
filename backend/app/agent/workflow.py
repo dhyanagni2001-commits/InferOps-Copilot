@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import logging
+from app.agent.prompts import diagnosis_prompt
 from app.agent.tools import ToolRunner
+from app.agent.tools.search_docs import search_docs
+from app.config import settings
+from app.inference.vllm_client import VLLMClient
 from app.schemas import DiagnoseRequest, DiagnosticResult, Diagnosis
 
 logger = logging.getLogger(__name__)
@@ -15,6 +19,7 @@ class DiagnosticWorkflow:
 
     async def run(self, request_id: str, request: DiagnoseRequest) -> DiagnosticResult:
         evidence = await self.tools.collect(request)
+        evidence.extend(search_docs(f"{request.question} {request.workload.kind}"))
         joined = " ".join(item.detail.lower() for item in evidence)
 
         # Rules make the local path useful and testable without hallucinated citations.
@@ -42,6 +47,15 @@ class DiagnosticWorkflow:
 
         usable = [item.id for item in evidence if "error" not in item.data]
         limitations = [] if usable else ["Kubernetes evidence could not be collected."]
+        if settings.use_llm:
+            try:
+                generated = await VLLMClient().diagnose(diagnosis_prompt(request, evidence))
+                summary = generated["summary"]
+                actions = [str(item) for item in generated["suggested_actions"][:5]]
+            except Exception as exc:
+                # A model outage must not hide the deterministic diagnosis.
+                logger.warning("vllm_fallback request_id=%s error=%s", request_id, exc)
+                limitations.append("The instruction model was unavailable; a rule-based diagnosis was returned.")
         logger.info("diagnosis_completed request_id=%s evidence_count=%d", request_id, len(evidence))
         return DiagnosticResult(
             request_id=request_id,

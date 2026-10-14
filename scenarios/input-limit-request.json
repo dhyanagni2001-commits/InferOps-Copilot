@@ -1,0 +1,5 @@
+{
+  "question": "Explain this failure with a deliberately oversized input supplied by the caller.",
+  "namespace": "inferops-demo",
+  "workload": {"kind": "Deployment", "name": "inference-demo"}
+}

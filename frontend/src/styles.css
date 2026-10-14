@@ -32,6 +32,7 @@ button:hover { background: #244a6e; } button:disabled { opacity: .55; cursor: wa
 details { border-top: 1px solid #e5e7e9; padding: 13px 0; } details:last-child { padding-bottom: 0; }
 summary { cursor: pointer; display: flex; justify-content: space-between; } code { color: #687078; font-size: 11px; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f6f7f8; border-radius: 4px; padding: 12px; color: #343a40; font-size: 12px; }
+.evidence a { color: #2869a8; font-size: 12px; }
 .warning { color: #9b4b17; font-size: 13px; }
 footer { color: #858b91; font-size: 12px; margin-top: 24px; }
 @media (max-width: 680px) { .fields { grid-template-columns: 1fr; } main { padding-top: 28px; } .topbar { padding: 0 18px; } }

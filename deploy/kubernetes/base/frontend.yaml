@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inferops-frontend
+  namespace: inferops-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: inferops-frontend}
+  template:
+    metadata:
+      labels: {app: inferops-frontend}
+    spec:
+      containers:
+        - name: frontend
+          image: inferops/frontend:local
+          ports: [{containerPort: 80}]
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 250m, memory: 128Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inferops-frontend
+  namespace: inferops-demo
+spec:
+  type: LoadBalancer
+  selector: {app: inferops-frontend}
+  ports: [{port: 80, targetPort: 80}]

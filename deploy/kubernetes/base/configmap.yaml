@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inferops-config
+  namespace: inferops-demo
+data:
+  APP_ENV: production
+  DEMO_MODE: "false"
+  K8S_ALLOWED_NAMESPACES: inferops-demo
+  VLLM_BASE_URL: http://vllm:8000/v1
+  VLLM_MODEL: Qwen/Qwen2.5-1.5B-Instruct
+  TRITON_HTTP_URL: http://triton:8000
+  QDRANT_URL: http://qdrant:6333
+  MAX_CONCURRENT_REQUESTS: "4"
+  RATE_LIMIT_PER_MINUTE: "20"

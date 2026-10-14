@@ -4,7 +4,7 @@ An agentic AI assistant for diagnosing Kubernetes deployment and inference-servi
 
 InferOps Copilot combines a React interface, Python APIs, retrieval-augmented generation, Kubernetes diagnostic tools, vLLM, and NVIDIA Triton Inference Server.
 
-> **Status:** Runnable local MVP. The authenticated streaming API, bounded read-only diagnostics, demo evidence, structured logs, React UI, and tests are implemented. GPU inference, vector retrieval, and production Kubernetes manifests remain optional extension paths; no performance claims are made.
+> **Status:** Runnable end-to-end implementation. Local demo diagnostics and browser tests are verified. Real-cluster, GPU, Qdrant, and model-serving integrations have runnable code but still require validation on their target infrastructure; no performance claims are made.
 
 ## Project Checklist
 
@@ -26,21 +26,29 @@ InferOps Copilot combines a React interface, Python APIs, retrieval-augmented ge
 - [x] Add backend unit and API tests.
 - [x] Add local development scripts, Dockerfiles, and setup documentation.
 - [x] Verify the frontend production build and backend test suite.
+- [x] Add and run a browser-level UI-to-API diagnostic test.
+- [x] Add optional vLLM generation with deterministic fallback.
+- [x] Add a Triton HTTP client and ONNX embedding export command.
+- [x] Add document loading, chunking, local indexing, and Qdrant upload/search.
+- [x] Display documentation source links with diagnostic evidence.
+- [x] Add Kubernetes manifests, namespace-scoped RBAC, probes, Services, and an example Secret.
+- [x] Add request rate limits, timeouts, cancellation handling, and concurrency limits.
+- [x] Add controlled failure manifests and scenario lifecycle scripts.
+- [x] Add diagnostic-quality evaluation and serving benchmark commands.
+- [x] Add architecture, GPU, evaluation, report, and demo documentation.
 
 ### Next
 
 - [ ] Validate the real-cluster path against each controlled failure scenario.
-- [ ] Add browser-level tests for the complete UI-to-API workflow.
-- [ ] Connect the workflow to a pinned instruction model served by vLLM.
-- [ ] Implement Triton embeddings with matching tokenizer, pooling, and normalization settings.
-- [ ] Implement document ingestion and Qdrant-backed retrieval.
-- [ ] Add documentation citations to diagnostic responses.
-- [ ] Complete and validate Kubernetes manifests, RBAC, probes, and Secrets.
-- [ ] Add production rate limits, request timeouts, cancellation, and concurrency limits.
+- [ ] Pin a vLLM model revision and validate its JSON output on the target GPU.
+- [ ] Export the selected embedding model and compare Triton output with the source model.
+- [ ] Run ingestion and retrieval-quality checks against a live Qdrant instance.
+- [ ] Replace example image names and create the deployment Secret in the target cluster.
+- [ ] Render and apply the Kubernetes manifests with `kubectl` on the target cluster.
 - [ ] Run diagnostic-quality evaluation and serving benchmarks.
-- [ ] Record reproducible results in the technical report and demo guide.
+- [ ] Record hardware, model revisions, raw results, and measured conclusions in the technical report.
 
-The recommended next milestone is real-cluster scenario validation, followed by browser tests. Model serving and retrieval should be integrated only after the evidence workflow is stable.
+The remaining work requires Kubernetes, Qdrant, or GPU infrastructure. The recommended next milestone is real-cluster scenario validation, followed by model and retrieval validation.
 
 ## Overview
 

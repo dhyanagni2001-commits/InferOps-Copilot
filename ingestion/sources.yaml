@@ -1,0 +1,7 @@
+sources:
+  - id: kubernetes-debugging
+    title: Kubernetes application debugging notes
+    path: docs/architecture.md
+  - id: gpu-deployment
+    title: GPU deployment notes
+    path: docs/gpu-deployment.md

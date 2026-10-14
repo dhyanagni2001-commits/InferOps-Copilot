@@ -1,0 +1,3 @@
+{"id":"oom","request":{"question":"Why does this deployment keep restarting?","namespace":"inferops-demo","workload":{"kind":"Deployment","name":"inference-demo"}},"expected":{"keywords":["memory limit"]}}
+{"id":"image-pull","request":{"question":"Why can Kubernetes not pull this image?","namespace":"inferops-demo","workload":{"kind":"Deployment","name":"inference-demo"}},"expected":{"keywords":["pull","image"]}}
+{"id":"readiness","request":{"question":"Why is the readiness probe failing?","namespace":"inferops-demo","workload":{"kind":"Deployment","name":"inference-demo"}},"expected":{"keywords":["readiness probe"]}}

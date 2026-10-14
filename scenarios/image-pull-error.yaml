@@ -1,0 +1,10 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: broken-image, namespace: inferops-demo}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: broken-image}}
+  template:
+    metadata: {labels: {app: broken-image}}
+    spec:
+      containers: [{name: app, image: example.invalid/inferops/missing:never}]

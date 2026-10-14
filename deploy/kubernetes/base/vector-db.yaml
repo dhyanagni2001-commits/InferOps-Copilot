@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qdrant
+  namespace: inferops-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: qdrant}
+  template:
+    metadata:
+      labels: {app: qdrant}
+    spec:
+      containers:
+        - name: qdrant
+          image: qdrant/qdrant:v1.15.5
+          ports: [{containerPort: 6333}]
+          volumeMounts: [{name: data, mountPath: /qdrant/storage}]
+      volumes: [{name: data, emptyDir: {}}]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qdrant
+  namespace: inferops-demo
+spec:
+  selector: {app: qdrant}
+  ports: [{port: 6333, targetPort: 6333}]
