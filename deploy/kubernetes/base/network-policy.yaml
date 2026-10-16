@@ -1,0 +1,24 @@
+# Only the frontend may call the backend API; only the backend may reach Qdrant.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: inferops-backend-ingress
+spec:
+  podSelector: {matchLabels: {app: inferops-backend}}
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{podSelector: {matchLabels: {app: inferops-frontend}}}]
+      ports: [{port: 8080}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: qdrant-ingress
+spec:
+  podSelector: {matchLabels: {app: qdrant}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {app: inferops-backend}}
+        - podSelector: {matchLabels: {app: inferops-ingest}}
+      ports: [{port: 6333}]

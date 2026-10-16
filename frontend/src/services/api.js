@@ -1,12 +1,12 @@
-// Read POSTed server-sent events without an extra browser dependency.
-export async function diagnose(payload, token, onEvent) {
-  console.info("diagnosis request started", { namespace: payload.namespace, workload: payload.workload.name });
+// Read POSTed Server-Sent Events with streaming fetch; EventSource cannot send a body or headers.
+export async function diagnose(payload, token, onEvent, signal) {
   const response = await fetch("/api/diagnose", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload),
+    signal,
   });
-  if (!response.ok) throw new Error((await response.json()).detail || "Request failed");
+  if (!response.ok) throw new Error(await errorMessage(response));
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -15,7 +15,7 @@ export async function diagnose(payload, token, onEvent) {
     const { value, done } = await reader.read();
     buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
     const blocks = buffer.split("\n\n");
-    buffer = blocks.pop() || "";
+    buffer = done ? "" : blocks.pop() || "";
     for (const block of blocks) {
       const event = block.match(/^event: (.+)$/m)?.[1];
       const data = block.match(/^data: (.+)$/m)?.[1];
@@ -23,5 +23,20 @@ export async function diagnose(payload, token, onEvent) {
     }
     if (done) break;
   }
-  console.info("diagnosis request completed");
+}
+
+export async function loadConfig() {
+  const response = await fetch("/api/config");
+  if (!response.ok) throw new Error(`config request failed (${response.status})`);
+  return response.json();
+}
+
+async function errorMessage(response) {
+  try {
+    const body = await response.json();
+    if (Array.isArray(body.detail)) return body.detail.map(item => `${item.loc?.slice(-1)[0]}: ${item.msg}`).join("; ");
+    return body.detail || `Request failed (${response.status})`;
+  } catch {
+    return `Request failed (${response.status})`;
+  }
 }

@@ -1,0 +1,9 @@
+{
+  "model": "sentence-transformers/all-MiniLM-L6-v2",
+  "revision": "c9745ed1d9f207416be6d2e6f8de32d1f16199bf",
+  "triton_model_id": "triton:embedding:1:384",
+  "texts": 5,
+  "max_seq_length": 256,
+  "min_cosine": 0.9999999713472179,
+  "max_abs_diff": 3.9208680391311646e-07
+}

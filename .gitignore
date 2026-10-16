@@ -8,3 +8,7 @@ frontend/dist/
 frontend/test-results/
 frontend/playwright-report/
 .env
+data/
+model_repository/
+evaluation/results/latest.json
+.DS_Store

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inferops-config
+data:
+  USE_LLM: "true"
+  EMBEDDING_BACKEND: triton
+  EMBEDDING_TOKENIZER_PATH: /models/embedding-tokenizer/tokenizer.json
+  USE_QDRANT: "true"

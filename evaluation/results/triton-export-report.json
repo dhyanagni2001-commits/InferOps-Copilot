@@ -1,0 +1,9 @@
+{
+  "model": "sentence-transformers/all-MiniLM-L6-v2",
+  "revision": "c9745ed1d9f207416be6d2e6f8de32d1f16199bf",
+  "hidden_size": 384,
+  "max_abs_diff": 2.1606683731079102e-07,
+  "min_cosine": 0.9999999403953552,
+  "torch": "2.14.1",
+  "onnxruntime": "1.31.0"
+}

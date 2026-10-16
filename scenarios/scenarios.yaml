@@ -1,0 +1,10 @@
+# Controlled scenario catalog: manifest, workload to diagnose, and the expected root cause.
+scenarios:
+  - {name: oom-killed, file: oom-killed.yaml, kind: Deployment, workload: oom-demo, cause: oom_killed}
+  - {name: image-pull-error, file: image-pull-error.yaml, kind: Deployment, workload: broken-image, cause: image_pull_error}
+  - {name: readiness-probe-error, file: readiness-probe-error.yaml, kind: Deployment, workload: broken-readiness, cause: readiness_probe_failure}
+  - {name: service-port-mismatch, file: service-port-mismatch.yaml, kind: Service, workload: broken-service, app: port-demo, cause: service_port_mismatch}
+  - {name: crash-loop, file: crash-loop.yaml, kind: Deployment, workload: crashloop-demo, cause: crash_loop}
+  - {name: unschedulable, file: unschedulable.yaml, kind: Deployment, workload: unschedulable-demo, cause: unschedulable}
+  - {name: missing-config, file: missing-config.yaml, kind: Deployment, workload: missing-config, cause: config_error}
+  - {name: healthy, file: healthy.yaml, kind: Deployment, workload: healthy-demo, cause: healthy}

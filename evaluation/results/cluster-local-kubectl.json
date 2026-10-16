@@ -1,0 +1,139 @@
+{
+  "timestamp": "2026-10-15T17:43:07+00:00",
+  "git_revision": "6764e87",
+  "host": "macOS-27.0.1-arm64-arm-64bit",
+  "backend": {
+    "version": "0.2.0",
+    "mode": "cluster",
+    "allowed_namespaces": [
+      "inferops-demo"
+    ],
+    "llm_enabled": false,
+    "llm_model": null,
+    "embedding_backend": "hash",
+    "vector_store": "local"
+  },
+  "cases": 9,
+  "metrics": {
+    "cause_accuracy": 1.0,
+    "keyword_recall": 0.944,
+    "citation_validity": 1.0,
+    "grounded": 1.0
+  },
+  "latency": {
+    "mean_ms": 345.4,
+    "p50_ms": 111.2,
+    "p95_ms": 1310.7,
+    "max_ms": 1310.7
+  },
+  "results": [
+    {
+      "id": "oom",
+      "expected": "oom_killed",
+      "got": "oom_killed",
+      "generated_by": "rules",
+      "latency_ms": 1310.7,
+      "summary": "Container 'memory' was OOMKilled: it exceeded its memory limit (32Mi) and has restarted 6 time(s).",
+      "cause_accuracy": 1.0,
+      "keyword_recall": 1.0,
+      "citation_validity": 1.0,
+      "grounded": 1.0
+    },
+    {
+      "id": "image-pull",
+      "expected": "image_pull_error",
+      "got": "image_pull_error",
+      "generated_by": "rules",
+      "latency_ms": 90.1,
+      "summary": "Kubernetes cannot pull image 'example.invalid/inferops/missing:never' for container 'app' (ImagePullBackOff). The registry hostname does not resolve.",
+      "cause_accuracy": 1.0,
+      "keyword_recall": 1.0,
+      "citation_validity": 1.0,
+      "grounded": 1.0
+    },
+    {
+      "id": "readiness",
+      "expected": "readiness_probe_failure",
+      "got": "readiness_probe_failure",
+      "generated_by": "rules",
+      "latency_ms": 116.9,
+      "summary": "The pod is running but not Ready because its readiness probe fails: Readiness probe failed: HTTP probe failed with statuscode: 404. Services will not send it traffic.",
+      "cause_accuracy": 1.0,
+      "keyword_recall": 1.0,
+      "citation_validity": 1.0,
+      "grounded": 1.0
+    },
+    {
+      "id": "service-port",
+      "expected": "service_port_mismatch",
+      "got": "service_port_mismatch",
+      "generated_by": "rules",
+      "latency_ms": 83.0,
+      "summary": "Service broken-service forwards port 80 to targetPort 9999, but the selected containers expose 80. Connections to the Service will be refused.",
+      "cause_accuracy": 1.0,
+      "keyword_recall": 1.0,
+      "citation_validity": 1.0,
+      "grounded": 1.0
+    },
+    {
+      "id": "crash-loop",
+      "expected": "crash_loop",
+      "got": "crash_loop",
+      "generated_by": "rules",
+      "latency_ms": 1172.1,
+      "summary": "Container 'api' keeps exiting with code 3 and Kubernetes is backing off restarts (6 so far).",
+      "cause_accuracy": 1.0,
+      "keyword_recall": 0.5,
+      "citation_validity": 1.0,
+      "grounded": 1.0
+    },
+    {
+      "id": "unschedulable",
+      "expected": "unschedulable",
+      "got": "unschedulable",
+      "generated_by": "rules",
+      "latency_ms": 111.2,
+      "summary": "Pod unschedulable-demo-656d7c866c-jlnbw is Pending because the scheduler cannot place it: 0/1 nodes are available: 1 Insufficient cpu, 1 Insufficient memory. preemption: 0/1 nodes are available: 1 Preemption is not helpful for scheduling.",
+      "cause_accuracy": 1.0,
+      "keyword_recall": 1.0,
+      "citation_validity": 1.0,
+      "grounded": 1.0
+    },
+    {
+      "id": "missing-config",
+      "expected": "config_error",
+      "got": "config_error",
+      "generated_by": "rules",
+      "latency_ms": 82.0,
+      "summary": "Container 'api' cannot be created: configmap \"model-api-config\" not found.",
+      "cause_accuracy": 1.0,
+      "keyword_recall": 1.0,
+      "citation_validity": 1.0,
+      "grounded": 1.0
+    },
+    {
+      "id": "healthy",
+      "expected": "healthy",
+      "got": "healthy",
+      "generated_by": "rules",
+      "latency_ms": 113.4,
+      "summary": "No failure detected: pod healthy-demo-756885c8b-j25dj is Ready with no container restarts. 1 earlier warning event(s), such as 'Unhealthy', did not persist.",
+      "cause_accuracy": 1.0,
+      "keyword_recall": 1.0,
+      "citation_validity": 1.0,
+      "grounded": 1.0
+    },
+    {
+      "id": "missing-workload",
+      "expected": "evidence_unavailable",
+      "got": "evidence_unavailable",
+      "generated_by": "rules",
+      "latency_ms": 29.6,
+      "summary": "The workload could not be inspected: Error from server (NotFound): deployments.apps \"does-not-exist\" not found",
+      "cause_accuracy": 1.0,
+      "keyword_recall": 1.0,
+      "citation_validity": 1.0,
+      "grounded": 1.0
+    }
+  ]
+}

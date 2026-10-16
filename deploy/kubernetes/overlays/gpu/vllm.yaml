@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: vllm}
+  template:
+    metadata:
+      labels: {app: vllm}
+    spec:
+      tolerations: [{key: nvidia.com/gpu, operator: Exists, effect: NoSchedule}]
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:v0.11.0
+          args:
+            - --model=Qwen/Qwen2.5-1.5B-Instruct
+            - --revision=989aa7980e4cf806f80c7fef2b1adb7bc71aa306
+            - --max-model-len=8192
+            - --gpu-memory-utilization=0.85
+            - --host=0.0.0.0
+            - --port=8000
+          env:
+            - {name: HF_HOME, value: /cache}
+            - name: HF_TOKEN
+              valueFrom: {secretKeyRef: {name: inferops-secrets, key: HF_TOKEN, optional: true}}
+          ports: [{name: http, containerPort: 8000}]
+          # Weights download and load before /health responds.
+          startupProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10, failureThreshold: 90}
+          readinessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10}
+          livenessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 30, timeoutSeconds: 5}
+          resources:
+            requests: {cpu: "2", memory: 8Gi, nvidia.com/gpu: "1"}
+            limits: {memory: 16Gi, nvidia.com/gpu: "1"}
+          volumeMounts:
+            - {name: cache, mountPath: /cache}
+            - {name: shm, mountPath: /dev/shm}
+      volumes:
+        - name: cache
+          persistentVolumeClaim: {claimName: vllm-cache}
+        - name: shm
+          emptyDir: {medium: Memory, sizeLimit: 2Gi}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vllm-cache
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: {requests: {storage: 20Gi}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm
+spec:
+  selector: {app: vllm}
+  ports: [{name: http, port: 8000, targetPort: http}]

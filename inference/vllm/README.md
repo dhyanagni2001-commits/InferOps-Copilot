@@ -1,9 +1,12 @@
 # vLLM
 
-Install vLLM in a GPU environment, pin the model revision required by your deployment, then run:
+`serve.sh` starts an OpenAI-compatible server for the pinned instruction model. In a GPU environment with vLLM installed:
 
 ```bash
-VLLM_MODEL=Qwen/Qwen2.5-1.5B-Instruct ./inference/vllm/serve.sh
+./inference/vllm/serve.sh
+USE_LLM=true VLLM_BASE_URL=http://127.0.0.1:8000/v1 make dev
 ```
 
-Enable generation in the backend with `USE_LLM=true`. If vLLM is unavailable, the workflow logs the error and returns its deterministic diagnosis.
+The backend sends a `json_schema` `response_format`, so vLLM constrains decoding to `{summary, evidence_ids, suggested_actions}`. Output is still validated: cited IDs must exist among the collected evidence. On any failure the rule-based diagnosis is returned with a limitation, and `inferops_dependency_failures_total{dependency="llm"}` is incremented.
+
+Not yet validated on GPU hardware; see `docs/gpu-deployment.md`.

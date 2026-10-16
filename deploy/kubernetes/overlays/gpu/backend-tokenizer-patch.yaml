@@ -1,0 +1,22 @@
+# The backend tokenizes queries locally, so it needs the tokenizer that matches the Triton model.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inferops-backend
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: model-repository
+          image: inferops/model-repository:minilm
+          command: [sh, -c, "cp -r /model_repository/embedding/tokenizer /models/embedding-tokenizer"]
+          volumeMounts: [{name: models, mountPath: /models}]
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+      containers:
+        - name: backend
+          env:
+            - {name: EMBEDDING_TOKENIZER_PATH, value: /models/embedding-tokenizer/tokenizer.json}
+          volumeMounts:
+            - {name: models, mountPath: /models, readOnly: true}
+      volumes:
+        - {name: models, emptyDir: {}}

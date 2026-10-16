@@ -1,0 +1,128 @@
+{
+  "embedder": "feature-hash-v2-256",
+  "store": "local",
+  "cases": 32,
+  "hit@1": 0.594,
+  "hit@3": 0.812,
+  "mrr@5": 0.709,
+  "mean_query_ms": 0.2,
+  "misses": [
+    {
+      "query": "my pod got killed with exit code 137 and keeps restarting",
+      "expected": "oomkilled",
+      "got": [
+        "crashloop",
+        "inference-serving",
+        "oomkilled"
+      ]
+    },
+    {
+      "query": "container ran out of memory",
+      "expected": "oomkilled",
+      "got": [
+        "inference-serving",
+        "oomkilled",
+        "oomkilled"
+      ]
+    },
+    {
+      "query": "how much memory headroom should the model server get at startup",
+      "expected": "oomkilled",
+      "got": [
+        "inference-serving",
+        "oomkilled",
+        "inference-serving"
+      ]
+    },
+    {
+      "query": "private registry credentials for pulling containers",
+      "expected": "image-pull",
+      "got": [
+        "scheduling",
+        "inference-serving",
+        "probes"
+      ]
+    },
+    {
+      "query": "ImagePullBackOff on new deployment",
+      "expected": "image-pull",
+      "got": [
+        "inference-serving",
+        "config-errors",
+        "image-pull"
+      ]
+    },
+    {
+      "query": "toomanyrequests from docker hub",
+      "expected": "image-pull",
+      "got": [
+        "inference-serving",
+        "oomkilled",
+        "services"
+      ]
+    },
+    {
+      "query": "pod is running but never becomes ready",
+      "expected": "probes",
+      "got": [
+        "oomkilled",
+        "oomkilled",
+        "crashloop"
+      ]
+    },
+    {
+      "query": "health check returns 404",
+      "expected": "probes",
+      "got": [
+        "inference-serving",
+        "services",
+        "probes"
+      ]
+    },
+    {
+      "query": "slow model loading causes the kubelet to restart my container",
+      "expected": "probes",
+      "got": [
+        "crashloop",
+        "config-errors",
+        "oomkilled"
+      ]
+    },
+    {
+      "query": "how do I test the probe endpoint manually",
+      "expected": "probes",
+      "got": [
+        "crashloop",
+        "probes",
+        "probes"
+      ]
+    },
+    {
+      "query": "back-off restarting failed container",
+      "expected": "crashloop",
+      "got": [
+        "probes",
+        "crashloop",
+        "probes"
+      ]
+    },
+    {
+      "query": "application exits immediately because of missing environment variable",
+      "expected": "crashloop",
+      "got": [
+        "scheduling",
+        "services",
+        "oomkilled"
+      ]
+    },
+    {
+      "query": "wrong tensor datatype sent to inference server",
+      "expected": "inference-serving",
+      "got": [
+        "image-pull",
+        "crashloop",
+        "services"
+      ]
+    }
+  ]
+}

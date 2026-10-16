@@ -1,0 +1,38 @@
+{
+  "embedder": "triton:embedding:1:384",
+  "store": "qdrant",
+  "cases": 32,
+  "hit@1": 0.906,
+  "hit@3": 1.0,
+  "mrr@5": 0.948,
+  "mean_query_ms": 13.84,
+  "misses": [
+    {
+      "query": "my pod got killed with exit code 137 and keeps restarting",
+      "expected": "oomkilled",
+      "got": [
+        "crashloop",
+        "oomkilled",
+        "oomkilled"
+      ]
+    },
+    {
+      "query": "ImagePullBackOff on new deployment",
+      "expected": "image-pull",
+      "got": [
+        "crashloop",
+        "image-pull",
+        "image-pull"
+      ]
+    },
+    {
+      "query": "slow model loading causes the kubelet to restart my container",
+      "expected": "probes",
+      "got": [
+        "image-pull",
+        "config-errors",
+        "probes"
+      ]
+    }
+  ]
+}

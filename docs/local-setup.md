@@ -1,25 +1,46 @@
 # Local setup
 
-The default `DEMO_MODE=true` makes the complete UI and API runnable without Kubernetes or GPU services.
+Requirements: Python 3.10+, Node 22+. For the cluster and retrieval paths, also Docker, kind, and kubectl.
+
+## Demo mode (no cluster)
 
 ```bash
-python3 -m venv .venv
-./.venv/bin/pip install -e './backend[dev]'
-npm --prefix frontend install
-./scripts/dev.sh
+make install
+make dev            # API http://127.0.0.1:8081, UI http://localhost:5173, token: dev-token
+make test test-ui   # backend tests and Playwright browser tests
 ```
 
-Open `http://localhost:5173` and use the default development token `dev-token`.
-The local backend listens on `http://127.0.0.1:8081`.
-
-To inspect a real cluster, set `DEMO_MODE=false`, configure `K8S_ALLOWED_NAMESPACES`, and ensure the process has read-only `kubectl` access. Set `API_BEARER_TOKEN` to a non-default secret outside source control.
-
-Build and enable documentation retrieval with:
+## Against a real cluster from your machine
 
 ```bash
-./.venv/bin/python -m ingestion.build_index
-# Optional Qdrant mirror:
-./.venv/bin/python -m ingestion.build_index --qdrant-url http://127.0.0.1:6333
+make index
+DEMO_MODE=false K8S_ALLOWED_NAMESPACES=inferops-demo .venv/bin/uvicorn app.main:app --app-dir backend --port 8081
 ```
 
-Set `USE_QDRANT=true` to query Qdrant or leave it false to read `data/docs-index.json`. Set `USE_LLM=true` only when the configured vLLM endpoint is available.
+The process uses your current kubeconfig context, so use one with read-only access. `./scripts/run-scenario.sh all` creates the eight controlled failures in `inferops-demo`, and `make eval` scores them.
+
+## Full in-cluster run on kind
+
+```bash
+make e2e            # creates kind cluster "inferops" if needed, builds and loads images, deploys, evaluates
+kubectl port-forward -n inferops-demo svc/inferops-frontend 18080:80   # UI at :18080, token kind-local-token
+./scripts/cleanup-scenarios.sh
+```
+
+## Triton embeddings and Qdrant locally
+
+```bash
+python3 -m venv /tmp/modelenv && /tmp/modelenv/bin/pip install torch transformers onnx onnxruntime onnxscript sentence-transformers
+/tmp/modelenv/bin/python inference/triton/export_embedding_model.py      # writes model_repository/embedding
+EMBEDDING_BACKEND=triton USE_QDRANT=true docker compose --profile retrieval up --build
+```
+
+The `ingest` service embeds `knowledge/` with Triton and writes it to Qdrant. The backend then retrieves with the same model. To check the served embeddings against the reference model:
+
+```bash
+PYTHONPATH=backend TRITON_HTTP_URL=http://127.0.0.1:8002 /tmp/modelenv/bin/python inference/triton/validate_triton.py
+```
+
+## Configuration
+
+All settings are environment variables; see [`.env.example`](../.env.example). The backend validates them at startup, and `APP_ENV=production` refuses the default token.

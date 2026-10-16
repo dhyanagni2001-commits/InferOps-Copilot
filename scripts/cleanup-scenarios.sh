@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # Delete only the checked-in controlled failure resources.
-for file in scenarios/oom-killed.yaml scenarios/image-pull-error.yaml scenarios/readiness-probe-error.yaml scenarios/service-port-mismatch.yaml; do
+set -euo pipefail
+cd "$(dirname "$0")/.."
+for file in scenarios/*.yaml; do
+  [[ "$(basename "$file")" == scenarios.yaml ]] && continue
   kubectl delete -f "$file" --ignore-not-found
 done

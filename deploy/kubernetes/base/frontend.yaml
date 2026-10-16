@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: inferops-frontend
-  namespace: inferops-demo
 spec:
   replicas: 1
   selector:
@@ -11,20 +10,31 @@ spec:
     metadata:
       labels: {app: inferops-frontend}
     spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 101, runAsGroup: 101, seccompProfile: {type: RuntimeDefault}}
       containers:
         - name: frontend
-          image: inferops/frontend:local
-          ports: [{containerPort: 80}]
+          image: inferops/frontend:latest
+          ports: [{name: http, containerPort: 8080}]
+          env:
+            - {name: BACKEND_URL, value: "http://inferops-backend:8080"}
+          readinessProbe: {httpGet: {path: /, port: http}, periodSeconds: 10}
+          livenessProbe: {httpGet: {path: /, port: http}, periodSeconds: 20}
           resources:
-            requests: {cpu: 50m, memory: 64Mi}
-            limits: {cpu: 250m, memory: 128Mi}
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {memory: 128Mi}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          # nginx renders its config template and keeps pid/cache files in these writable mounts.
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+            - {name: conf, mountPath: /etc/nginx/conf.d}
+      volumes:
+        - {name: tmp, emptyDir: {}}
+        - {name: conf, emptyDir: {}}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: inferops-frontend
-  namespace: inferops-demo
 spec:
-  type: LoadBalancer
   selector: {app: inferops-frontend}
-  ports: [{port: 80, targetPort: 80}]
+  ports: [{name: http, port: 80, targetPort: http}]

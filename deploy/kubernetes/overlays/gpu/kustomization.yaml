@@ -1,0 +1,18 @@
+# GPU cluster: vLLM generation, Triton embeddings, and Qdrant retrieval.
+# Prerequisites: NVIDIA device plugin, the inferops-secrets Secret (API_BEARER_TOKEN, optional HF_TOKEN),
+# and the model-repository image built from deploy/docker/model-repository.Dockerfile.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: inferops-demo
+resources:
+  - ../../base
+  - vllm.yaml
+  - triton.yaml
+  - ingest-job.yaml
+images:
+  - {name: inferops/backend, newName: registry.example.com/inferops/backend, newTag: "0.2.0"}
+  - {name: inferops/frontend, newName: registry.example.com/inferops/frontend, newTag: "0.2.0"}
+  - {name: inferops/model-repository, newName: registry.example.com/inferops/model-repository, newTag: minilm}
+patches:
+  - path: config-patch.yaml
+  - path: backend-tokenizer-patch.yaml

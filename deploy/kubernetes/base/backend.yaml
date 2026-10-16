@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: inferops-backend
-  namespace: inferops-demo
 spec:
   replicas: 1
   selector:
@@ -10,26 +9,33 @@ spec:
   template:
     metadata:
       labels: {app: inferops-backend}
+      annotations: {prometheus.io/scrape: "true", prometheus.io/port: "8080", prometheus.io/path: /metrics}
     spec:
       serviceAccountName: inferops-backend
+      securityContext: {runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, seccompProfile: {type: RuntimeDefault}}
       containers:
         - name: backend
-          image: inferops/backend:local
-          ports: [{containerPort: 8080}]
+          image: inferops/backend:latest
+          ports: [{name: http, containerPort: 8080}]
           envFrom:
             - configMapRef: {name: inferops-config}
             - secretRef: {name: inferops-secrets}
-          readinessProbe: {httpGet: {path: /health/ready, port: 8080}, initialDelaySeconds: 3}
-          livenessProbe: {httpGet: {path: /health/live, port: 8080}, initialDelaySeconds: 10}
+          env:
+            - {name: HOME, value: /tmp}
+          startupProbe: {httpGet: {path: /health/live, port: http}, periodSeconds: 2, failureThreshold: 30}
+          readinessProbe: {httpGet: {path: /health/ready, port: http}, periodSeconds: 10, timeoutSeconds: 5}
+          livenessProbe: {httpGet: {path: /health/live, port: http}, periodSeconds: 20, timeoutSeconds: 3}
           resources:
-            requests: {cpu: 100m, memory: 128Mi}
-            limits: {cpu: "1", memory: 512Mi}
+            requests: {cpu: 100m, memory: 192Mi}
+            limits: {memory: 512Mi}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes: [{name: tmp, emptyDir: {}}]
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: inferops-backend
-  namespace: inferops-demo
 spec:
   selector: {app: inferops-backend}
-  ports: [{port: 8080, targetPort: 8080}]
+  ports: [{name: http, port: 8080, targetPort: http}]

@@ -1,0 +1,49 @@
+{
+  "backend": {
+    "version": "0.2.0",
+    "mode": "cluster",
+    "allowed_namespaces": [
+      "inferops-demo"
+    ],
+    "llm_enabled": false,
+    "llm_model": null,
+    "embedding_backend": "hash",
+    "vector_store": "local"
+  },
+  "workload": "oom-demo",
+  "runs": [
+    {
+      "requests": 60,
+      "concurrency": 1,
+      "succeeded": 60,
+      "errors": {},
+      "throughput_rps": 8.4,
+      "mean_ms": 119.0,
+      "p50_ms": 103.0,
+      "p95_ms": 344.0,
+      "max_ms": 362.0
+    },
+    {
+      "requests": 60,
+      "concurrency": 4,
+      "succeeded": 60,
+      "errors": {},
+      "throughput_rps": 30.18,
+      "mean_ms": 130.4,
+      "p50_ms": 128.5,
+      "p95_ms": 146.9,
+      "max_ms": 150.8
+    },
+    {
+      "requests": 60,
+      "concurrency": 8,
+      "succeeded": 60,
+      "errors": {},
+      "throughput_rps": 30.39,
+      "mean_ms": 251.7,
+      "p50_ms": 258.8,
+      "p95_ms": 283.5,
+      "max_ms": 289.7
+    }
+  ]
+}

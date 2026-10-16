@@ -1,803 +1,194 @@
 # InferOps Copilot
 
-An agentic AI assistant for diagnosing Kubernetes deployment and inference-serving failures using runtime evidence, technical documentation, and self-hosted models.
+[![CI](https://github.com/dhyanagni2001-commits/InferOps-Copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/dhyanagni2001-commits/InferOps-Copilot/actions/workflows/ci.yml)
 
-InferOps Copilot combines a React interface, Python APIs, retrieval-augmented generation, Kubernetes diagnostic tools, vLLM, and NVIDIA Triton Inference Server.
+Evidence-grounded diagnostics for failing Kubernetes and inference-serving workloads.
 
-> **Status:** Runnable end-to-end implementation. Local demo diagnostics and browser tests are verified. Real-cluster, GPU, Qdrant, and model-serving integrations have runnable code but still require validation on their target infrastructure; no performance claims are made.
+Ask *"why does this deployment keep restarting?"* and InferOps reads the workload, its pods, events, and logs through a read-only service account. It classifies the root cause with deterministic rules, retrieves matching runbook passages (Triton embeddings + Qdrant), and can optionally have a vLLM-served model write the explanation. Every claim cites an evidence record the application actually collected; a model answer that cites anything else is rejected.
 
-## Project Checklist
+<p align="center"><img src="docs/images/diagnosis.png" alt="InferOps diagnosing a crash-looping deployment: live tool steps, a high-confidence finding quoting the error log line, cited evidence, and copyable kubectl commands" width="720"></p>
 
-### Completed
+## What it detects
 
-- [x] Create a React interface for submitting diagnostic questions.
-- [x] Add namespace, resource kind, workload name, and runtime token inputs.
-- [x] Stream diagnostic events from FastAPI using Server-Sent Events.
-- [x] Validate API requests, bearer tokens, and allowed namespaces.
-- [x] Provide liveness and readiness endpoints.
-- [x] Add a zero-setup demo mode for local development.
-- [x] Support read-only inspection of Deployments, StatefulSets, DaemonSets, Pods, and Services.
-- [x] Resolve workload label selectors to matching pods.
-- [x] Collect bounded pod status, restart information, events, and container logs.
-- [x] Inspect Service port mappings and ready EndpointSlices.
-- [x] Diagnose common OOM, image-pull, readiness-probe, port, crash-loop, and scheduling failures.
-- [x] Link every diagnosis to returned evidence records.
-- [x] Add structured request and tool lifecycle logs.
-- [x] Add backend unit and API tests.
-- [x] Add local development scripts, Dockerfiles, and setup documentation.
-- [x] Verify the frontend production build and backend test suite.
-- [x] Add and run a browser-level UI-to-API diagnostic test.
-- [x] Add optional vLLM generation with deterministic fallback.
-- [x] Add a Triton HTTP client and ONNX embedding export command.
-- [x] Add document loading, chunking, local indexing, and Qdrant upload/search.
-- [x] Display documentation source links with diagnostic evidence.
-- [x] Add Kubernetes manifests, namespace-scoped RBAC, probes, Services, and an example Secret.
-- [x] Add request rate limits, timeouts, cancellation handling, and concurrency limits.
-- [x] Add controlled failure manifests and scenario lifecycle scripts.
-- [x] Add diagnostic-quality evaluation and serving benchmark commands.
-- [x] Add architecture, GPU, evaluation, report, and demo documentation.
+| Cause | Detected from | Example finding |
+|---|---|---|
+| `oom_killed` | `OOMKilled` in current or last state, or exit 137 under a memory limit | Container 'memory' was OOMKilled: it exceeded its memory limit (32Mi) |
+| `image_pull_error` | `ErrImagePull` / `ImagePullBackOff` plus the pull event | …cannot pull image… The registry hostname does not resolve |
+| `config_error` | `CreateContainerConfigError` / `CreateContainerError` | configmap "model-api-config" not found |
+| `unschedulable` | `PodScheduled=False`, `FailedScheduling` | 0/1 nodes are available: 1 Insufficient cpu… |
+| `liveness_probe_failure` | `Liveness probe failed` events with restarts | The kubelet keeps restarting the container |
+| `crash_loop` | `CrashLoopBackOff` or a non-zero exit with restarts, plus previous logs | Exits with code 3. Last log line: "ERROR: MODEL_PATH … is required" |
+| `readiness_probe_failure` | `Readiness probe failed` events on an unready pod | Running but not Ready; Services send it no traffic |
+| `service_port_mismatch` | Service `targetPort` vs backing container ports | forwards 80 to targetPort 9999, but containers expose 80 |
+| `service_no_endpoints` | Service selector matches no pods | selector {app: typo} matches no pods |
+| `healthy` | All containers Ready with no restarts | No failure detected (transient startup warnings are noted) |
+| `evidence_unavailable` / `unknown` | Workload unreadable / no rule matched | Evidence is still returned |
 
-### Next
+## What was validated
 
-- [ ] Validate the real-cluster path against each controlled failure scenario.
-- [ ] Pin a vLLM model revision and validate its JSON output on the target GPU.
-- [ ] Export the selected embedding model and compare Triton output with the source model.
-- [ ] Run ingestion and retrieval-quality checks against a live Qdrant instance.
-- [ ] Replace example image names and create the deployment Secret in the target cluster.
-- [ ] Render and apply the Kubernetes manifests with `kubectl` on the target cluster.
-- [ ] Run diagnostic-quality evaluation and serving benchmarks.
-- [ ] Record hardware, model revisions, raw results, and measured conclusions in the technical report.
+All numbers below were measured locally on 2026-10-15. Raw reports are in [`evaluation/results/`](evaluation/results/), and the method is in the [technical report](docs/technical-report.md).
 
-The remaining work requires Kubernetes, Qdrant, or GPU infrastructure. The recommended next milestone is real-cluster scenario validation, followed by model and retrieval validation.
+| Check | Environment | Result |
+|---|---|---|
+| Root-cause accuracy, 8 controlled failure scenarios + missing workload | kind v0.33 / Kubernetes v1.37.0, backend in-cluster with read-only RBAC, via nginx | **9/9**; citation validity 1.0; grounded 1.0 |
+| Same, demo replay of recorded cluster output | Local API | 8/8 |
+| Service account cannot `delete pods`, `create deployments`, or `get secrets` | kind | verified by `kubectl auth can-i` |
+| NetworkPolicy blocks non-frontend pods from the API | kind (kindnet) | verified |
+| ONNX export vs PyTorch, all-MiniLM-L6-v2 @ `c9745ed` | ONNX Runtime 1.31 | min cosine 0.99999994 |
+| Served path (Rust tokenizer → Triton 25.08 → embeddings) vs sentence-transformers | Triton on CPU, arm64 | min cosine 0.99999997 |
+| Retrieval, 32 held-out queries: hash embeddings vs Triton MiniLM | local index and Qdrant 1.15.5 | hit@1 **0.59 → 0.91**, hit@3 0.81 → 1.00 |
+| API latency, live cluster, concurrency 1 / 4 / 8 | kind, 6 vCPU | p50 103 / 129 / 259 ms; ~30 rps ceiling (4-slot limit) |
 
-## Overview
+**Not validated:** vLLM generation on a GPU. The LLM path, including schema-constrained output, citation validation, and fallback, is covered only by tests against a mocked OpenAI-compatible server. The GPU overlay renders, but it has not been applied to a GPU cluster.
 
-Troubleshooting Kubernetes applications often requires switching between pod logs, events, service configurations, and documentation.
+## Quick start
 
-InferOps Copilot brings these sources into a single diagnostic workflow.
+**Prerequisites:** Python 3.10+, Node 22+. For the cluster and retrieval paths, also Docker, [kind](https://kind.sigs.k8s.io/), and kubectl.
 
-A user asks:
-
-> “My inference deployment keeps restarting. What is causing it?”
-
-The assistant gathers relevant evidence, retrieves documentation, and returns:
-
-- A likely root cause.
-- Supporting logs, events, and documentation citations.
-- Alternative explanations when evidence is incomplete.
-- Suggested corrective actions.
-- Commands the user can inspect and run.
-- Follow-up checks to verify whether the problem is resolved.
-
-The initial version uses read-only Kubernetes tools. It does not automatically modify deployments or execute generated shell commands.
-
-## Example Diagnostic Session
-
-**User**
-
-```text
-The inference deployment in the demo namespace keeps restarting.
-Can you identify the cause?
+```bash
+make install          # .venv and frontend dependencies
+make dev              # API :8081 + UI http://localhost:5173 in demo mode, token "dev-token"
 ```
 
-**Illustrative response**
+Demo mode replays kubectl output recorded from the real scenarios, so it needs no cluster. Pick a scenario chip in the UI and run it.
 
-```text
-Likely cause:
-The container exceeded its configured memory limit.
-
-Evidence:
-- The previous container state reports OOMKilled.
-- The pod has restarted multiple times.
-- The deployment configuration specifies a container memory limit.
-
-Suggested next steps:
-1. Inspect memory consumption under the same workload.
-2. Compare the configured limit with the application's requirements.
-3. Adjust the workload or memory configuration based on those measurements.
-4. Monitor restart count and container status after the change.
-
-Limitation:
-Historical memory usage was not available, so the exact peak consumption
-could not be established.
-```
-
-This example illustrates the intended output format; it is not a measured project result.
-
-## Goals
-
-- Build an end-to-end AI troubleshooting application.
-- Implement bounded agent workflows with structured tool calls.
-- Ground diagnoses in Kubernetes evidence and retrieved documentation.
-- Serve an instruction model through vLLM.
-- Serve an embedding model through NVIDIA Triton Inference Server.
-- Deploy application components as Kubernetes services.
-- Design observable APIs with validation, streaming, and failure handling.
-- Evaluate diagnostic quality and inference performance.
-- Publish reproducible examples, a technical report, and a recorded demo.
-
-## Technology Stack
-
-| Technology | Intended Purpose |
+| Goal | Command |
 |---|---|
-| Python | Backend, agent workflow, ingestion, evaluation |
-| FastAPI | HTTP APIs, validation, streaming, health endpoints |
-| JavaScript / React | Chat interface and evidence display |
-| Kubernetes Python client | Structured access to cluster resources |
-| vLLM | Instruction-model inference |
-| NVIDIA Triton Inference Server | Embedding-model inference |
-| ONNX / ONNX Runtime backend | Initial embedding-model deployment path |
-| Qdrant | Vector storage and document retrieval |
-| Docker | Service packaging |
-| Kubernetes | Deployment, service discovery, resource management |
-| pytest | Backend and workflow tests |
-| Structured JSON logs | Request tracing and debugging |
+| Containers, demo mode | `docker compose up --build` → http://localhost:8080 (set `UI_PORT` to change) |
+| Containers + Triton + Qdrant | export the model ([guide](inference/triton/README.md)), then `EMBEDDING_BACKEND=triton USE_QDRANT=true docker compose --profile retrieval up --build` |
+| Full kind run: build, deploy, break things, evaluate | `make e2e`, then `kubectl port-forward -n inferops-demo svc/inferops-frontend 18080:80` (token `kind-local-token`) |
+| Your own cluster from your machine | `DEMO_MODE=false K8S_ALLOWED_NAMESPACES=<ns> make dev` with a read-only kubeconfig context |
+| GPU cluster with vLLM | [GPU deployment](docs/gpu-deployment.md) |
 
-NVIDIA Triton Inference Server is distinct from the Triton GPU kernel programming language. This project uses the inference server.
+Run `make help` to list every target.
 
-Exact dependency versions and model revisions will be pinned after a working deployment is validated.
-
-## Architecture
+## How it works
 
 ```mermaid
-flowchart TD
-    UI["React Interface"] --> API["FastAPI Service"]
-    API --> AG["Agent Workflow"]
-    AG --> LLM["vLLM Instruction Model"]
-    AG --> KT["Read-only Kubernetes Tools"]
-    KT --> K8S["Target Demo Namespace"]
-    AG --> RET["Document Retrieval"]
-    RET --> EMB["Triton Embedding Model"]
-    RET --> DB["Qdrant Vector Store"]
-    SRC["Versioned Documentation"] --> ING["Ingestion Pipeline"]
-    ING --> EMB
-    ING --> DB
-    AG --> OUT["Diagnosis and Evidence"]
-    OUT --> UI
+flowchart LR
+    UI["React UI"] -->|POST + SSE| NGINX["nginx"] --> API["FastAPI"]
+    API --> TOOLS["Read-only tools<br/>kubectl get/logs"] --> K8S[("Kubernetes API")]
+    API --> RULES["Root-cause rules"]
+    API --> RET["Retriever"] --> TRITON["Triton<br/>MiniLM ONNX"]
+    RET --> QDRANT[("Qdrant")]
+    API -. optional .-> VLLM["vLLM<br/>Qwen2.5-1.5B"]
 ```
 
-### Application Services
+1. **Collect.** A fixed plan per workload kind: workload → pods (least healthy first) → events → current or previous logs. A Service is checked against its EndpointSlices and backing container ports. Calls run as argument lists (never through a shell), only `get` and `logs` are allowed, and each call is bounded by a timeout, an output cap, and a call budget.
+2. **Diagnose.** Rules read only normalized cluster evidence, never documentation text. Each finding cites the records that triggered it, and secondary findings appear as alternatives.
+3. **Retrieve.** Runbook passages for the detected cause come from the [`knowledge/`](knowledge/) base. Each index records its embedding model, and a mismatched index is refused.
+4. **Explain (optional).** vLLM receives the evidence and rule finding and must return JSON matching a schema. Unknown evidence IDs, empty citations, malformed JSON, and timeouts all fall back to the rule-based answer, with a stated limitation.
+5. **Stream.** `status`, `tool_started`, `tool_result`, `completed`, or `error` events are sent as Server-Sent Events while the work happens.
 
-| Service | Responsibility |
-|---|---|
-| Frontend | Display chat, diagnostic progress, evidence, and feedback |
-| Backend | Validate requests, authenticate users, coordinate diagnostics |
-| vLLM | Generate tool requests and evidence-grounded answers |
-| Triton | Generate document and query embeddings |
-| Qdrant | Store document vectors and searchable metadata |
+More detail, including the failure behavior of each dependency, is in [architecture](docs/architecture.md).
 
-The agent and retrieval modules initially run inside the backend service. They can be separated later if operational requirements justify it.
+## API
 
-### Diagnostic Workflow
-
-1. The user submits a question and selects an allowed namespace.
-2. The API validates the request and creates a request ID.
-3. The agent chooses an allowed diagnostic tool.
-4. The backend validates the tool arguments and executes the request.
-5. Retrieved evidence is normalized into structured records.
-6. Relevant documentation is retrieved using the embedding service.
-7. The model produces a diagnosis with references to evidence records.
-8. The frontend displays the answer, evidence, and suggested next steps.
-
-The workflow has limits on tool calls, retries, token usage, and total execution time.
-
-## Core Features
-
-### 1. Diagnostic Chat Interface
-
-Planned interface features:
-
-- Streamed responses.
-- Namespace and workload selection.
-- Visible diagnostic steps.
-- Expandable log and event excerpts.
-- Documentation citations.
-- Suggested commands with copy controls.
-- Feedback on diagnostic usefulness.
-- Clear indication of missing evidence or failed tools.
-
-The interface displays observable tool activity, not hidden model reasoning.
-
-### 2. Python API
-
-The API provides:
-
-- Request validation.
-- Authentication.
-- Namespace authorization.
-- Streaming diagnostic events.
-- Request IDs.
-- Timeouts and cancellation.
-- Rate limits and concurrency limits.
-- Structured error responses.
-- Health and readiness endpoints.
-
-Initial development can use a configured bearer token. Tokens must be entered at runtime or managed through an authentication flow, rather than embedded in frontend source code.
-
-### 3. Agent Workflow
-
-Implement an explicit, bounded tool-execution loop.
-
-Each tool has:
-
-- A name and description.
-- A validated input schema.
-- A structured output schema.
-- A timeout.
-- Defined error behavior.
-- A maximum output size.
-
-The model proposes tool calls; application code validates and executes them.
-
-If evidence is insufficient, the assistant should explain what is missing and suggest a relevant follow-up check.
-
-### 4. Kubernetes Diagnostic Tools
-
-| Tool | Purpose |
-|---|---|
-| `pod_status` | Inspect pod phase, conditions, container states, and restart counts |
-| `pod_logs` | Retrieve bounded current or previous container logs |
-| `pod_events` | Inspect scheduling, image-pull, probe, and restart events |
-| `service_inspect` | Compare service selectors, ports, and available endpoints |
-| `search_docs` | Retrieve relevant documentation passages |
-
-Kubernetes tools use the Kubernetes API through a dedicated service account.
-
-The initial permissions are limited to reading the resources needed for diagnosis in approved namespaces. Secret access, pod execution, and resource modification are outside the initial scope.
-
-### 5. Retrieval-Augmented Generation
-
-The ingestion pipeline:
-
-1. Loads an allowlisted set of documentation sources.
-2. Records source URL, title, product version, and retrieval date.
-3. Extracts and normalizes text.
-4. Splits documents into searchable chunks.
-5. Generates embeddings through Triton.
-6. Stores vectors and metadata in Qdrant.
-
-The retrieval pipeline:
-
-1. Embeds the user's diagnostic query.
-2. Searches the document collection.
-3. Applies relevant metadata filters.
-4. Returns passages with stable source identifiers.
-5. Supplies those passages to the agent.
-
-Query and document embeddings must use the same model revision, pooling method, normalization, and preprocessing conventions.
-
-### 6. vLLM Instruction-Model Serving
-
-Use vLLM to serve a small instruction model supported by the selected deployment environment.
-
-Model selection criteria:
-
-- Fits available GPU memory.
-- Supports the intended language and diagnostic workload.
-- Supports the chosen structured-output or tool-calling approach.
-- Has compatible licensing.
-- Can be pinned to a specific revision.
-
-Record:
-
-- Model and tokenizer revision.
-- Precision.
-- Context limit.
-- Generation settings.
-- Runtime version.
-- GPU model.
-- Relevant serving configuration.
-
-Tool-call parsing and chat-template behavior must be tested for the chosen model.
-
-### 7. NVIDIA Triton Embedding Serving
-
-The initial deployment path uses a compatible embedding model exported to ONNX and served through Triton's ONNX Runtime backend.
-
-Planned steps:
-
-1. Select and pin an embedding model.
-2. Export the required tensor computation to ONNX.
-3. Validate exported outputs against the original model.
-4. Create a Triton model repository and configuration.
-5. Validate input names, shapes, dtypes, and batching.
-6. Compare embeddings and retrieval quality after deployment.
-
-Tokenization initially runs in Python. The implementation must explicitly define whether pooling and normalization happen inside the exported model or in the client.
-
-The planned model repository follows this structure:
-
-| Path | Purpose |
-|---|---|
-| `model_repository/embedding/config.pbtxt` | Triton model configuration |
-| `model_repository/embedding/1/model.onnx` | Versioned exported model |
-
-The model name `embedding` is a proposed local identifier, not a pretrained model selection.
-
-Using Triton's ONNX Runtime backend does not establish TensorRT experience. A TensorRT optimization path is an optional later experiment.
-
-## Repository Structure
-
-| Path | Purpose |
-|---|---|
-| `frontend/src/App.jsx` | Main application |
-| `frontend/src/components/Chat.jsx` | Chat interaction |
-| `frontend/src/components/Message.jsx` | Message rendering |
-| `frontend/src/components/EvidencePanel.jsx` | Evidence and citations |
-| `frontend/src/components/DiagnosticSteps.jsx` | Tool activity display |
-| `frontend/src/services/api.js` | Backend client |
-| `backend/app/main.py` | FastAPI application |
-| `backend/app/config.py` | Validated configuration |
-| `backend/app/schemas.py` | Shared request and response schemas |
-| `backend/app/api/chat.py` | Diagnostic endpoint |
-| `backend/app/api/health.py` | Health endpoints |
-| `backend/app/api/auth.py` | Authentication |
-| `backend/app/agent/workflow.py` | Bounded agent loop |
-| `backend/app/agent/prompts.py` | Prompt templates |
-| `backend/app/agent/tools/` | Kubernetes and retrieval tools |
-| `backend/app/retrieval/` | Embeddings, vector storage, retrieval |
-| `backend/app/inference/` | vLLM and Triton clients |
-| `backend/tests/` | Backend correctness tests |
-| `ingestion/sources.yaml` | Documentation source manifest |
-| `ingestion/load_documents.py` | Document loading |
-| `ingestion/chunk_documents.py` | Chunking |
-| `ingestion/build_index.py` | Embedding and indexing |
-| `inference/vllm/` | Model-serving configuration |
-| `inference/triton/` | Embedding export and serving instructions |
-| `deploy/docker/` | Container build definitions |
-| `deploy/kubernetes/base/` | Kubernetes manifests |
-| `scenarios/` | Controlled failure cases |
-| `evaluation/datasets/cases.jsonl` | Diagnostic evaluation cases |
-| `evaluation/run_evaluation.py` | Evaluation runner |
-| `evaluation/metrics.py` | Metric calculation |
-| `evaluation/benchmark_serving.py` | Load and latency measurements |
-| `evaluation/results/` | Raw results |
-| `docs/` | Architecture, tutorials, reports, and demo script |
-| `scripts/` | Development and deployment helpers |
-
-The current scaffold requires implementation before these files perform their intended functions.
-
-## API Design
-
-### Planned Endpoints
-
-| Method | Endpoint | Purpose |
+| Method | Path | Notes |
 |---|---|---|
-| `POST` | `/api/diagnose` | Start a diagnostic request and stream events |
-| `GET` | `/health/live` | Check that the application process is responsive |
-| `GET` | `/health/ready` | Check that required dependencies are usable |
+| `POST` | `/api/diagnose` | Bearer token; namespace allowlist; SSE stream; `X-Request-ID` header |
+| `GET` | `/api/config` | Non-secret runtime mode for the UI |
+| `GET` | `/health/live`, `/health/ready` | Readiness fails without kubectl in cluster mode; it reports optional dependencies (vLLM, Triton, index) without failing |
+| `GET` | `/metrics` | Prometheus: diagnoses by cause, latency, kubectl latency, dependency failures |
 
-Feedback collection can be added after the initial diagnostic flow works.
-
-### Example Request
-
-```json
-{
-  "question": "Why does this deployment keep restarting?",
-  "namespace": "inferops-demo",
-  "workload": {
-    "kind": "Deployment",
-    "name": "inference-demo"
-  }
-}
+```bash
+curl -N localhost:8081/api/diagnose -H 'Authorization: Bearer dev-token' -H 'Content-Type: application/json' \
+  -d '{"question":"Why is it restarting?","namespace":"inferops-demo","workload":{"kind":"Deployment","name":"oom-demo"}}'
 ```
 
-The backend checks namespace access before making Kubernetes requests.
-
-### Streaming Protocol
-
-The proposed endpoint uses a streaming HTTP response with Server-Sent Events formatting.
-
-Planned event types:
-
-- `status`
-- `tool_started`
-- `tool_result`
-- `answer_delta`
-- `completed`
-- `error`
-
-The React client reads the POST response using streaming `fetch`.
-
-### Example Completed Result
-
-```json
-{
-  "request_id": "example-request",
-  "status": "completed",
-  "diagnosis": {
-    "summary": "The container was terminated after exceeding its memory limit.",
-    "evidence_ids": ["event-1", "pod-state-1"],
-    "suggested_actions": [
-      "Measure memory usage under the failing workload.",
-      "Review the configured memory limit."
-    ],
-    "limitations": [
-      "Historical memory measurements were unavailable."
-    ]
-  }
-}
-```
-
-Evidence IDs must resolve to records returned by tools or retrieval. The model must not invent citations.
+Safety limits: per-token rate limit, a concurrency limit, an overall deadline, cancellation on client disconnect, and validated Kubernetes names. Production refuses to start with the default token.
 
 ## Configuration
 
-The following variable names define the proposed configuration contract. They become functional after `config.py` and the relevant services are implemented.
+Everything is set through environment variables, validated at startup. The full list with defaults is in [`.env.example`](.env.example).
 
-```dotenv
-APP_ENV=development
-LOG_LEVEL=INFO
-API_BEARER_TOKEN=replace-with-a-local-development-token
-
-VLLM_BASE_URL=http://localhost:8000/v1
-VLLM_MODEL=replace-with-served-model-name
-
-TRITON_URL=localhost:8001
-TRITON_MODEL_NAME=embedding
-EMBEDDING_TOKENIZER=replace-with-matching-tokenizer
-
-QDRANT_URL=http://localhost:6333
-QDRANT_COLLECTION=inferops_docs
-
-K8S_ALLOWED_NAMESPACES=inferops-demo
-AGENT_MAX_TOOL_CALLS=6
-AGENT_TIMEOUT_SECONDS=60
-TOOL_TIMEOUT_SECONDS=10
-MAX_LOG_LINES=200
-```
-
-`TRITON_URL` above represents a gRPC endpoint. Configure port mappings explicitly so Triton and vLLM do not conflict when running locally.
-
-Keep real credentials out of version control. Use Kubernetes Secrets or an appropriate secret-management mechanism for deployed environments.
-
-## Development Setup
-
-### Prerequisites
-
-Application development requires:
-
-- Python.
-- Node.js and npm.
-- Docker or another compatible container runtime.
-- `kubectl`.
-- A local or remote Kubernetes cluster.
-
-GPU inference requires:
-
-- A compatible NVIDIA GPU.
-- A compatible driver and inference runtime environment.
-- Sufficient memory for the selected models.
-
-Local development can use simulated model responses and Kubernetes fixtures before GPU serving is available.
-
-### Initial Environment
-
-From the repository root:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-```
-
-On the GPU host:
-
-```bash
-nvidia-smi
-```
-
-### Installation After Implementation
-
-The following commands are the intended developer interface. They require completed package configuration and application code.
-
-```bash
-# Backend
-python -m pip install -e './backend[dev]'
-
-# Frontend
-cd frontend
-npm install
-npm run dev
-```
-
-From a separate terminal at the repository root:
-
-```bash
-source .venv/bin/activate
-
-uvicorn app.main:app \
-  --app-dir backend \
-  --host 127.0.0.1 \
-  --port 8080 \
-  --reload
-```
-
-Pin tested versions and commit the frontend lockfile after the first working installation.
-
-## Kubernetes Deployment
-
-The planned deployment includes:
-
-- Frontend deployment and service.
-- Backend deployment and service.
-- vLLM deployment and service.
-- Triton deployment and service.
-- Qdrant deployment, service, and persistent storage.
-- Backend service account.
-- Namespace-scoped diagnostic permissions.
-- ConfigMaps and Secrets.
-- Liveness and readiness probes.
-- CPU, memory, and GPU resource requests.
-
-After manifests and images are implemented and validated:
-
-```bash
-kubectl apply -k deploy/kubernetes/base
-```
-
-An NVIDIA GPU-enabled Kubernetes cluster must have the required device integration configured before GPU workloads can be scheduled.
-
-Request GPU resources explicitly. If only one GPU is available, do not assume two separate pods requesting one GPU each can run simultaneously. Begin with vLLM on the GPU and Triton embeddings on CPU if supported, or configure an explicitly supported sharing arrangement.
-
-A Slurm GPU allocation, such as a university HPC session, is not automatically a Kubernetes cluster. It can host a permitted inference process while application development occurs elsewhere, subject to the environment's networking and usage rules.
-
-## Controlled Failure Scenarios
-
-Create failures only inside a dedicated demo environment.
-
-| Scenario | Injected Problem | Expected Evidence |
+| Variable | Default | Purpose |
 |---|---|---|
-| Container out of memory | Workload exceeds a deliberately small container memory limit | Previous termination reason, restart count, configured limit |
-| Image pull failure | Invalid container image reference | Waiting reason and image-pull events |
-| Readiness failure | Probe uses an incorrect path or port | Probe configuration and failure events |
-| Service port mismatch | Service target port does not match the application | Service configuration, endpoints, application port |
-| Input-length rejection | Request exceeds the server's configured input allowance | Request metadata and structured server error |
-
-The input-length scenario is a controlled API request, not a Kubernetes resource manifest. If request evidence is unavailable to the diagnostic tools, the user or evaluation case must supply the server error.
-
-Each scenario should document:
-
-- Preconditions.
-- How to activate the failure.
-- Expected evidence.
-- Root cause.
-- Acceptable corrective actions.
-- Cleanup procedure.
-
-## Evaluation
-
-### Comparison Modes
-
-Evaluate the same model under three conditions:
-
-| Mode | Available Context |
-|---|---|
-| Direct LLM | User question only |
-| RAG | User question and retrieved documentation |
-| Agentic RAG | User question, retrieved documentation, and diagnostic tools |
-
-Use the same model revision and generation settings where possible.
-
-### Dataset
-
-Each evaluation case should include:
-
-- Case identifier.
-- Scenario type.
-- User question.
-- Target namespace and workload.
-- Known root cause.
-- Expected evidence.
-- Acceptable corrective actions.
-- Unacceptable or unsupported conclusions.
-- Environment configuration.
-
-Five scenario types are a starting point. Add multiple variants, healthy cases, ambiguous cases, and missing-evidence cases to avoid evaluating only memorized examples.
-
-Keep a held-out subset that is not used for prompt tuning.
-
-### Quality Metrics
-
-| Metric | Measurement |
-|---|---|
-| Root-cause accuracy | Whether the diagnosis matches the known cause |
-| Evidence correctness | Whether cited records exist and support the associated claims |
-| Retrieval relevance | Whether retrieved passages help answer the diagnostic question |
-| Tool-call validity | Whether tool names and arguments satisfy their schemas |
-| Tool execution success | Whether valid calls complete successfully |
-| Corrective-action quality | Whether suggested actions address the cause without unrelated changes |
-| Unsupported-claim rate | Fraction of assessed factual claims unsupported by available evidence |
-| Appropriate uncertainty | Whether the assistant acknowledges genuinely missing evidence |
-
-Define scoring rules before evaluating. Report denominators and review subjective judgments manually.
-
-### Performance Metrics
-
-- End-to-end diagnostic latency.
-- Time to first visible progress event.
-- Time to first answer token.
-- Model time to first token.
-- Retrieval latency.
-- Per-tool latency.
-- Generated-token throughput.
-- Concurrent-request success rate.
-- Timeout and error rate.
-- GPU memory usage.
-
-Application time to first answer and model time to first token are different measurements because the application may perform multiple retrieval and model steps.
-
-Report p50 and p95 latency, workload size, concurrency, and actual generated token counts.
-
-### Proposed Evaluation Commands
-
-These commands require the evaluation scripts to be implemented:
-
-```bash
-python -m evaluation.run_evaluation \
-  --dataset evaluation/datasets/cases.jsonl \
-  --mode direct \
-  --output evaluation/results/direct.json
-
-python -m evaluation.run_evaluation \
-  --dataset evaluation/datasets/cases.jsonl \
-  --mode rag \
-  --output evaluation/results/rag.json
-
-python -m evaluation.run_evaluation \
-  --dataset evaluation/datasets/cases.jsonl \
-  --mode agentic-rag \
-  --output evaluation/results/agentic-rag.json
-```
-
-### Results
-
-No results have been measured yet.
-
-| Mode | Root-Cause Accuracy | Evidence Correctness | p95 Diagnostic Latency |
-|---|---|---|---|
-| Direct LLM | Not measured | Not applicable without evidence access | Not measured |
-| RAG | Not measured | Not measured | Not measured |
-| Agentic RAG | Not measured | Not measured | Not measured |
-
-Publish raw results and the configuration used for every reported experiment.
-
-## Reliability and Access Boundaries
-
-- Authorize namespaces before running tools.
-- Use structured Kubernetes API calls instead of arbitrary shell execution.
-- Limit log volume, tool calls, retries, and execution time.
-- Treat logs and retrieved documents as evidence rather than trusted instructions.
-- Avoid returning credentials or sensitive values found in logs.
-- Bound diagnostic requests and model input lengths.
-- Handle unavailable model servers, retrieval failures, and Kubernetes API errors.
-- Use dependency-aware readiness checks.
-- Propagate request IDs through service calls.
-- Keep suggested remediation separate from executable application actions.
-
-These controls should have focused tests.
+| `DEMO_MODE` | `true` | `false` reads the cluster with kubectl |
+| `API_BEARER_TOKEN` | `dev-token` | Required token; rejected in `APP_ENV=production` |
+| `K8S_ALLOWED_NAMESPACES` | `inferops-demo` | Namespace allowlist |
+| `EMBEDDING_BACKEND` | `hash` | `triton` for MiniLM embeddings |
+| `USE_QDRANT` | `false` | Qdrant instead of the local JSON index |
+| `USE_LLM` | `false` | vLLM explanations (`VLLM_BASE_URL`, `VLLM_MODEL`) |
+| `RATE_LIMIT_PER_MINUTE` / `MAX_CONCURRENT_REQUESTS` | `20` / `4` | Load limits |
 
 ## Testing
 
-Planned test coverage:
-
-| Area | Tests |
+| Command | What it runs |
 |---|---|
-| API | Validation, authentication, namespace authorization, streaming errors |
-| Kubernetes tools | Missing resources, API errors, previous logs, output bounds |
-| Retrieval | Metadata preservation, source IDs, empty results |
-| Agent workflow | Tool limits, invalid calls, timeouts, missing evidence |
-| Inference clients | Server errors, cancellation, malformed responses |
-| Embedding export | Numerical comparison and retrieval consistency |
-| Integration | One complete diagnosis against a controlled failure |
+| `make lint` | Ruff on all Python |
+| `make test` | 50 backend tests, including every recorded scenario, LLM fallback, auth, rate limit, timeout |
+| `make test-ui` | UI build + Playwright browser tests |
+| `make eval` | Scenario evaluation against a running API |
+| `make eval-retrieval` | Retrieval hit@k / MRR for the local index |
+| `make e2e` | kind cluster end-to-end, gated on 100% root-cause accuracy |
 
-Intended test command after implementation:
+CI (`.github/workflows/ci.yml`) runs the backend, browser, and kind end-to-end jobs on every push and pull request.
 
-```bash
-python -m pytest backend/tests -q
-```
+## Project status
 
-Use fixtures for routine tests and a separate demo cluster for integration tests.
+### Completed
 
-## Implementation Roadmap
+- [x] Streaming diagnostic API with auth, namespace allowlist, rate and concurrency limits, deadlines, and cancellation
+- [x] Read-only Kubernetes tools for Deployments, StatefulSets, DaemonSets, Pods, and Services
+- [x] Rules for 11 root-cause classes, each citing the evidence that triggered it
+- [x] Demo mode that replays recorded real-cluster output through the same code path
+- [x] Runbook knowledge base, section-aware ingestion, local index and Qdrant
+- [x] MiniLM exported to ONNX, served by Triton, numerically validated end to end
+- [x] Optional vLLM explanations with schema-constrained output and citation validation
+- [x] React UI with live steps, citations, commands, alternatives, dark mode, and mobile layout
+- [x] Prometheus metrics, JSON logs with request IDs, real readiness checks
+- [x] Non-root images, hardened Kubernetes base, NetworkPolicy, `kind` and `gpu` overlays
+- [x] 8 controlled failure scenarios validated 9/9 on a live kind cluster
+- [x] Evaluation, retrieval benchmark, load benchmark, and technical report with measured results
+- [x] CI workflow with kind end-to-end
 
-### Milestone 1: Working Diagnostic Slice
+### Next
 
-- [ ] Implement FastAPI health and diagnostic endpoints.
-- [ ] Implement pod status and event tools.
-- [ ] Create one controlled failure scenario.
-- [ ] Build a basic React chat interface.
-- [ ] Return a structured diagnosis with evidence.
+- [ ] Run the `gpu` overlay on a GPU node and record vLLM JSON validity, quality, and latency
+- [ ] Confirm CI passes on GitHub
+- [ ] Grow the retrieval query set and add upstream Kubernetes docs (`fetch: true` sources)
+- [ ] Multi-user authentication behind an identity-aware proxy
+- [ ] Add a license
 
-### Milestone 2: Agentic Retrieval
+## Repository
 
-- [ ] Implement a bounded tool-calling workflow.
-- [ ] Load and chunk versioned documentation.
-- [ ] Build the Qdrant collection.
-- [ ] Add retrieval with source references.
-- [ ] Handle insufficient evidence and tool failures.
+| Path | Contents |
+|---|---|
+| `backend/app/agent/` | kubectl runner and fixture replay, tools, rules, workflow, prompts |
+| `backend/app/retrieval/`, `backend/app/inference/` | Embedders (hash, Triton), local and Qdrant stores, Triton and vLLM clients |
+| `backend/tests/` | Backend tests |
+| `frontend/` | React UI and Playwright tests |
+| `knowledge/` | Runbook corpus and source manifest |
+| `ingestion/` | Load → section chunking → embed → local index or Qdrant |
+| `inference/triton/` | ONNX export with numerical validation, served-path validation |
+| `inference/vllm/` | Pinned vLLM serve script |
+| `scenarios/` | 8 controlled failures and the catalog with expected causes |
+| `evaluation/` | Scenario eval, retrieval eval, load benchmark, recorded results |
+| `deploy/docker/`, `docker-compose.yml` | Images (non-root, pinned kubectl) and local stack |
+| `deploy/kubernetes/` | Hardened base; `kind` and `gpu` overlays |
+| `scripts/` | Dev, deploy, scenarios, kind e2e, fixture capture |
+| `docs/` | [Architecture](docs/architecture.md), [setup](docs/local-setup.md), [GPU deployment](docs/gpu-deployment.md), [evaluation](docs/evaluation-methodology.md), [report](docs/technical-report.md), [demo script](docs/demo-script.md) |
 
-### Milestone 3: Self-Hosted Inference
+## Troubleshooting
 
-- [ ] Deploy a pinned instruction model through vLLM.
-- [ ] Validate tool-calling behavior.
-- [ ] Export and validate an embedding model.
-- [ ] Serve embeddings through Triton.
-- [ ] Record model and runtime configurations.
-
-### Milestone 4: Kubernetes Deployment
-
-- [ ] Build application containers.
-- [ ] Complete Kubernetes manifests.
-- [ ] Configure diagnostic RBAC.
-- [ ] Add health probes and resource requests.
-- [ ] Document GPU placement and storage.
-
-### Milestone 5: Evaluation and Publication
-
-- [ ] Implement all five scenario types.
-- [ ] Add held-out evaluation variants.
-- [ ] Compare direct LLM, RAG, and agentic RAG.
-- [ ] Measure latency and throughput.
-- [ ] Write a technical report.
-- [ ] Record a reproducible demonstration.
-- [ ] Publish setup instructions and raw results.
-
-## Demo Plan
-
-A short demonstration should show:
-
-1. A healthy deployment.
-2. Activation of one controlled failure.
-3. A user asking the assistant to diagnose it.
-4. Visible tool activity and retrieved evidence.
-5. An explanation with cited sources.
-6. A human applying an appropriate fix.
-7. A follow-up check confirming recovery.
-
-Record a second case where the assistant correctly reports insufficient evidence.
-
-## Technical Report
-
-The report should describe:
-
-- User problem and intended workflow.
-- Architecture and deployment decisions.
-- Model and inference-runtime selection.
-- Evaluation dataset and scoring rules.
-- Quality and performance results.
-- Failure analysis.
-- User-interface observations.
-- Prioritized engineering improvements.
-- Limitations and reproduction instructions.
-
-Include examples where the system fails, not only successful demonstrations.
+| Symptom | Fix |
+|---|---|
+| `Bind for 0.0.0.0:8080 failed: port is already allocated` | `UI_PORT=8090 docker compose up` |
+| Benchmark or eval shows HTTP 429 | The per-token rate limit; raise `RATE_LIMIT_PER_MINUTE` on the target |
+| Playwright: `Executable doesn't exist` | `cd frontend && npx playwright install chromium` |
+| "Documentation search unavailable: index … was built with …" | The index and `EMBEDDING_BACKEND` differ; rebuild with `python -m ingestion.build_index --embedding-backend <backend>` |
+| Crash-loop finding says previous logs could not be retrieved | The runtime already garbage-collected them; check `kubectl logs --previous` soon after a restart |
+| `/health/ready` returns 503 | Cluster mode without kubectl on `PATH` (or `KUBECTL_PATH`) |
 
 ## Limitations
 
-- Initial tools inspect a limited set of Kubernetes resources.
-- Logs and events may be incomplete or expired.
-- Documentation may not match every deployed version.
-- Model-generated diagnoses can be incorrect.
-- GPU availability limits inference throughput and model selection.
-- Benchmark results apply to the documented environment.
-- Automated remediation is outside the initial scope.
-
-## Contributing
-
-Useful contributions include:
-
-- New diagnostic scenarios.
-- Tool correctness tests.
-- Retrieval evaluation cases.
-- Runtime integration improvements.
-- Reproduction of benchmark results.
-- Documentation and user-interface improvements.
-
-Changes to diagnostic behavior should include a representative evaluation case. Performance claims should include hardware, workload, baseline, and reproduction details.
+- The plan is fixed, not model-chosen; the model only explains. That's deliberate: every kubectl call is predictable and auditable.
+- Rules cover the failure classes listed above. Anything else is returned as `unknown`, with the evidence attached.
+- `kubectl logs --previous` is sometimes unavailable after many restarts (containerd garbage collection). The diagnosis then says the logs could not be retrieved.
+- Authentication is a single shared bearer token, which suits a single team. Multi-user setups should sit behind an identity-aware proxy.
+- The retrieval evaluation set is small (32 queries written for this corpus), so treat the figures as relative, not absolute.
 
 ## License
 
-A license has not been selected.
-
-Add a `LICENSE` file before publishing the project as licensed open source.
+No license yet. Add one before publishing.

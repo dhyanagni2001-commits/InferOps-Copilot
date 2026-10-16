@@ -1,0 +1,32 @@
+{"query": "my pod got killed with exit code 137 and keeps restarting", "doc": "oomkilled"}
+{"query": "container ran out of memory", "doc": "oomkilled"}
+{"query": "how much memory headroom should the model server get at startup", "doc": "oomkilled"}
+{"query": "node is low on memory and pods were evicted", "doc": "oomkilled"}
+{"query": "registry says manifest unknown for my tag", "doc": "image-pull"}
+{"query": "private registry credentials for pulling containers", "doc": "image-pull"}
+{"query": "ImagePullBackOff on new deployment", "doc": "image-pull"}
+{"query": "toomanyrequests from docker hub", "doc": "image-pull"}
+{"query": "pod is running but never becomes ready", "doc": "probes"}
+{"query": "health check returns 404", "doc": "probes"}
+{"query": "slow model loading causes the kubelet to restart my container", "doc": "probes"}
+{"query": "how do I test the probe endpoint manually", "doc": "probes"}
+{"query": "connection refused when calling the service even though pods are ready", "doc": "services"}
+{"query": "service has no endpoints", "doc": "services"}
+{"query": "selector does not match pod labels", "doc": "services"}
+{"query": "use a named port in the service definition", "doc": "services"}
+{"query": "back-off restarting failed container", "doc": "crashloop"}
+{"query": "how to see logs from the crashed container", "doc": "crashloop"}
+{"query": "what does exit code 139 mean", "doc": "crashloop"}
+{"query": "application exits immediately because of missing environment variable", "doc": "crashloop"}
+{"query": "0/3 nodes are available insufficient cpu", "doc": "scheduling"}
+{"query": "pod stuck pending waiting for a gpu", "doc": "scheduling"}
+{"query": "untolerated taint on node", "doc": "scheduling"}
+{"query": "persistent volume claim unbound blocks pod placement", "doc": "scheduling"}
+{"query": "configmap not found when starting container", "doc": "config-errors"}
+{"query": "secret referenced by env is missing", "doc": "config-errors"}
+{"query": "couldn't find key in ConfigMap", "doc": "config-errors"}
+{"query": "CUDA out of memory when vLLM starts", "doc": "inference-serving"}
+{"query": "Triton model state UNAVAILABLE", "doc": "inference-serving"}
+{"query": "wrong tensor datatype sent to inference server", "doc": "inference-serving"}
+{"query": "retrieval quality dropped after changing embedding model", "doc": "inference-serving"}
+{"query": "huggingface weights download on every restart", "doc": "inference-serving"}

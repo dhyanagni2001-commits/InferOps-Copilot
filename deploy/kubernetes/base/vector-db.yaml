@@ -1,9 +1,9 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: qdrant
-  namespace: inferops-demo
 spec:
+  serviceName: qdrant
   replicas: 1
   selector:
     matchLabels: {app: qdrant}
@@ -11,18 +11,31 @@ spec:
     metadata:
       labels: {app: qdrant}
     spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 1000, fsGroup: 1000, seccompProfile: {type: RuntimeDefault}}
       containers:
         - name: qdrant
           image: qdrant/qdrant:v1.15.5
-          ports: [{containerPort: 6333}]
-          volumeMounts: [{name: data, mountPath: /qdrant/storage}]
-      volumes: [{name: data, emptyDir: {}}]
+          ports: [{name: http, containerPort: 6333}]
+          readinessProbe: {httpGet: {path: /readyz, port: http}, periodSeconds: 10}
+          livenessProbe: {httpGet: {path: /livez, port: http}, periodSeconds: 20}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 1Gi}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          volumeMounts:
+            - {name: data, mountPath: /qdrant/storage}
+            - {name: snapshots, mountPath: /qdrant/snapshots}
+      volumes: [{name: snapshots, emptyDir: {}}]
+  volumeClaimTemplates:
+    - metadata: {name: data}
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources: {requests: {storage: 2Gi}}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: qdrant
-  namespace: inferops-demo
 spec:
   selector: {app: qdrant}
-  ports: [{port: 6333, targetPort: 6333}]
+  ports: [{name: http, port: 6333, targetPort: http}]

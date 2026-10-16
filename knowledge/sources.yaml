@@ -1,0 +1,37 @@
+# Allowlisted documentation sources for ingestion. Paths are relative to this file.
+# Local runbooks are curated summaries; `url` points to the upstream reference shown to users.
+# Remote entries (`fetch: true`) are downloaded at ingestion time and converted from HTML to text.
+retrieved: "2026-10-15"
+sources:
+  - id: oomkilled
+    title: OOMKilled containers
+    path: oomkilled.md
+    url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  - id: image-pull
+    title: Image pull failures
+    path: image-pull.md
+    url: https://kubernetes.io/docs/concepts/containers/images/
+  - id: probes
+    title: Liveness, readiness, and startup probes
+    path: probes.md
+    url: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+  - id: services
+    title: Debugging Services and endpoints
+    path: services.md
+    url: https://kubernetes.io/docs/tasks/debug/debug-application/debug-service/
+  - id: crashloop
+    title: CrashLoopBackOff
+    path: crashloop.md
+    url: https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/
+  - id: scheduling
+    title: Pending pods and scheduling failures
+    path: scheduling.md
+    url: https://kubernetes.io/docs/concepts/scheduling-eviction/kube-scheduler/
+  - id: config-errors
+    title: Container configuration errors
+    path: config-errors.md
+    url: https://kubernetes.io/docs/concepts/configuration/configmap/
+  - id: inference-serving
+    title: "Inference server failures: vLLM and Triton"
+    path: inference-serving.md
+    url: https://docs.vllm.ai/en/latest/

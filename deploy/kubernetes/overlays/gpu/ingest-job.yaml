@@ -1,0 +1,27 @@
+# Embeds the knowledge base with Triton and writes it to Qdrant. Re-run after changing docs or the model:
+#   kubectl delete job inferops-ingest -n inferops-demo && kubectl apply -k deploy/kubernetes/overlays/gpu
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: inferops-ingest
+spec:
+  backoffLimit: 6
+  template:
+    metadata:
+      labels: {app: inferops-ingest}
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: model-repository
+          image: inferops/model-repository:minilm
+          command: [sh, -c, "cp -r /model_repository/embedding/tokenizer /models/embedding-tokenizer"]
+          volumeMounts: [{name: models, mountPath: /models}]
+      containers:
+        - name: ingest
+          image: inferops/backend:latest
+          command: [python, -m, ingestion.build_index, --embedding-backend=triton, --output=, --qdrant-url=http://qdrant:6333]
+          envFrom: [{configMapRef: {name: inferops-config}}]
+          env:
+            - {name: EMBEDDING_TOKENIZER_PATH, value: /models/embedding-tokenizer/tokenizer.json}
+          volumeMounts: [{name: models, mountPath: /models, readOnly: true}]
+      volumes: [{name: models, emptyDir: {}}]
